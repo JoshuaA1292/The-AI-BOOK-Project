@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+ask-the-orb-qr.png
+ask-the-orb-qr.svg
