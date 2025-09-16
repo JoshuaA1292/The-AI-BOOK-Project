@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ask the Orb • Kids’ AI Companion</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#4c6fff">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <div class="orb-glow" aria-hidden="true"></div>
+      <h1>Ask the Orb</h1>
+    </div>
+    <button id="toggle-voice" class="ghost">🎙️ Voice</button>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>Talk to the Orb</h2>
+
+      <div class="row">
+        <label class="switch">
+          <input type="checkbox" id="mysteryMode" checked />
+          <span class="slider"></span>
+        </label>
+        <span> Mystery Mode</span>
+        <span class="hint"> (the Orb gives a playful “black box” hint)</span>
+      </div>
+
+      <div class="chat" id="chat"></div>
+
+      <form id="chatForm" class="composer">
+        <input id="chatInput" type="text" autocomplete="off" maxlength="280" placeholder="Ask about stars, robots, riddles…"/>
+        <button type="submit" class="primary">Ask</button>
+      </form>
+    </section>
+
+    <aside class="panel tools">
+      <h2>Play Lab</h2>
+
+      <div class="tool">
+        <h3>Fairness Test</h3>
+        <p class="small">Try a question about picking turns or teams.</p>
+        <form id="fairnessForm">
+          <input id="fairnessInput" type="text" maxlength="160" placeholder="Who should be captain of the team?" />
+          <button class="secondary" type="submit">Ask</button>
+        </form>
+      </div>
+
+      <div class="tool">
+        <h3>Creative World</h3>
+        <p class="small">Imagine something silly & safe.</p>
+        <form id="creativeForm">
+          <input id="creativeInput" type="text" maxlength="160" placeholder="A planet shaped like a donut" />
+          <button class="secondary" type="submit">Create</button>
+        </form>
+      </div>
+
+      <div class="tool">
+        <h3>Summarize</h3>
+        <p class="small">Paste a short paragraph. Choose style.</p>
+        <form id="summaryForm">
+          <textarea id="summaryText" rows="5" placeholder="Paste a short, kid-safe passage here…"></textarea>
+          <div class="modes">
+            <label><input type="radio" name="mode" value="one_paragraph" checked/> Paragraph</label>
+            <label><input type="radio" name="mode" value="bullets"/> Bullets</label>
+            <label><input type="radio" name="mode" value="eli5"/> Explain like I'm 5</label>
+          </div>
+          <button class="secondary" type="submit">Summarize</button>
+        </form>
+      </div>
+
+      <div class="card tip">
+        <strong>Tip:</strong> If the Orb refuses, try a cheerier idea like animals in space, rainbow snacks, or tiny robots!
+      </div>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <p>Made for the Children’s Book about AI • Be kind. Stay curious. 🌟</p>
+  </footer>
+
+  <script src="/static/main.js" defer></script>
+</body>
+</html>
