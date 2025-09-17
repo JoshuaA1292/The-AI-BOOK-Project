@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ask the Orb • Kids’ AI Companion</title>
-  <link rel="stylesheet" href="/static/styles.css"/>
+  <link rel="stylesheet" href="./styles.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#4c6fff">
@@ -29,6 +29,10 @@
         </label>
         <span> Mystery Mode</span>
         <span class="hint"> (the Orb gives a playful “black box” hint)</span>
+      </div>
+
+      <div id="status" class="small" style="margin:.5rem 0; color:#556;">
+        Loading the tiny model (first time can take a bit)…
       </div>
 
       <div class="chat" id="chat"></div>
@@ -84,6 +88,8 @@
     <p>Made for the Children’s Book about AI • Be kind. Stay curious. 🌟</p>
   </footer>
 
-  <script src="/static/main.js" defer></script>
+  <!-- Load WebLLM runtime first (browser-only model), then your app -->
+  <script src="https://unpkg.com/@mlc-ai/web-llm@latest/dist/webllm.min.js"></script>
+  <script src="./main.js" defer></script>
 </body>
 </html>
