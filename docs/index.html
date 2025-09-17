@@ -4,52 +4,65 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ask the Orb • Kids’ AI Companion</title>
+
+  <!-- Relative path so it works on GitHub Pages project URLs -->
   <link rel="stylesheet" href="./styles.css"/>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#4c6fff">
+  <meta name="description" content="A kid-friendly AI buddy that runs in your browser.">
 </head>
 <body>
-  <header class="bar">
+  <noscript>
+    <div style="padding:12px;margin:12px;background:#fff3cd;border:1px solid #ffeeba;border-radius:8px;">
+      This page needs JavaScript to run the chatbot. Please enable JavaScript.
+    </div>
+  </noscript>
+
+  <header class="bar" role="banner">
     <div class="brand">
       <div class="orb-glow" aria-hidden="true"></div>
       <h1>Ask the Orb</h1>
     </div>
-    <button id="toggle-voice" class="ghost">🎙️ Voice</button>
+    <button id="toggle-voice" class="ghost" aria-pressed="false" aria-label="Toggle voice">🎙️ Voice</button>
   </header>
 
-  <main class="container">
-    <section class="panel">
-      <h2>Talk to the Orb</h2>
+  <main class="container" role="main">
+    <section class="panel" aria-labelledby="talk-to-orb">
+      <h2 id="talk-to-orb">Talk to the Orb</h2>
 
-      <div class="row">
-        <label class="switch">
-          <input type="checkbox" id="mysteryMode" checked />
-          <span class="slider"></span>
+      <div class="row" style="align-items:center;gap:8px;">
+        <label class="switch" title="Toggle Mystery Mode">
+          <input type="checkbox" id="mysteryMode" checked aria-checked="true" />
+          <span class="slider" aria-hidden="true"></span>
         </label>
         <span> Mystery Mode</span>
         <span class="hint"> (the Orb gives a playful “black box” hint)</span>
       </div>
 
       <div id="status" class="small" style="margin:.5rem 0; color:#556;">
-        Loading the tiny model (first time can take a bit)…
+        Checking your device…
       </div>
 
-      <div class="chat" id="chat"></div>
+      <div class="chat" id="chat" aria-live="polite" aria-label="Chat messages"></div>
 
-      <form id="chatForm" class="composer">
-        <input id="chatInput" type="text" autocomplete="off" maxlength="280" placeholder="Ask about stars, robots, riddles…"/>
+      <form id="chatForm" class="composer" autocomplete="off">
+        <label for="chatInput" class="visually-hidden">Your message</label>
+        <input id="chatInput" type="text" maxlength="280"
+               placeholder="Ask about stars, robots, riddles…" />
         <button type="submit" class="primary">Ask</button>
       </form>
     </section>
 
-    <aside class="panel tools">
+    <aside class="panel tools" aria-label="Play Lab tools">
       <h2>Play Lab</h2>
 
       <div class="tool">
         <h3>Fairness Test</h3>
         <p class="small">Try a question about picking turns or teams.</p>
-        <form id="fairnessForm">
+        <form id="fairnessForm" autocomplete="off">
+          <label for="fairnessInput" class="visually-hidden">Fairness scenario</label>
           <input id="fairnessInput" type="text" maxlength="160" placeholder="Who should be captain of the team?" />
           <button class="secondary" type="submit">Ask</button>
         </form>
@@ -57,8 +70,9 @@
 
       <div class="tool">
         <h3>Creative World</h3>
-        <p class="small">Imagine something silly & safe.</p>
-        <form id="creativeForm">
+        <p class="small">Imagine something silly &amp; safe.</p>
+        <form id="creativeForm" autocomplete="off">
+          <label for="creativeInput" class="visually-hidden">Creative idea</label>
           <input id="creativeInput" type="text" maxlength="160" placeholder="A planet shaped like a donut" />
           <button class="secondary" type="submit">Create</button>
         </form>
@@ -67,7 +81,8 @@
       <div class="tool">
         <h3>Summarize</h3>
         <p class="small">Paste a short paragraph. Choose style.</p>
-        <form id="summaryForm">
+        <form id="summaryForm" autocomplete="off">
+          <label for="summaryText" class="visually-hidden">Text to summarize</label>
           <textarea id="summaryText" rows="5" placeholder="Paste a short, kid-safe passage here…"></textarea>
           <div class="modes">
             <label><input type="radio" name="mode" value="one_paragraph" checked/> Paragraph</label>
@@ -78,18 +93,35 @@
         </form>
       </div>
 
-      <div class="card tip">
+      <div class="card tip" role="note">
         <strong>Tip:</strong> If the Orb refuses, try a cheerier idea like animals in space, rainbow snacks, or tiny robots!
       </div>
     </aside>
   </main>
 
-  <footer class="foot">
+  <footer class="foot" role="contentinfo">
     <p>Made for the Children’s Book about AI • Be kind. Stay curious. 🌟</p>
   </footer>
 
-  <!-- Load WebLLM runtime first (browser-only model), then your app -->
+  <!-- Fast path: WebGPU local LLM -->
   <script src="https://unpkg.com/@mlc-ai/web-llm@latest/dist/webllm.min.js"></script>
+
+  <!-- Universal fallback: WASM (no GPU needed) -->
+  <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.2"></script>
+
+  <!-- Your app logic (hybrid: tries WebGPU, then WASM) -->
   <script src="./main.js" defer></script>
+
+  <!-- Optional helper for hidden labels -->
+  <style>
+    .visually-hidden {
+      position: absolute !important;
+      height: 1px; width: 1px;
+      overflow: hidden;
+      clip: rect(1px, 1px, 1px, 1px);
+      white-space: nowrap;
+    }
+  </style>
 </body>
 </html>
+
