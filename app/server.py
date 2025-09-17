@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from app.providers import generate_text, ModelError
 
 # ---------- Dependencies ----------
 try:
@@ -323,42 +324,17 @@ async def generate_with_retries(
     max_new_tokens: int = GEN_MAX_NEW_TOKENS,
     top_p: float = GEN_TOP_P,
 ) -> str:
-    """Run text generation with timeout & retries; log clear errors."""
     last_err = None
-    for attempt in range(1, MAX_RETRIES + 1):
+    for _ in range(MAX_RETRIES):
         try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(
-                    lambda: text_gen(
-                        format_instruct(prompt, SYSTEM_ORB),
-                        max_new_tokens=max_new_tokens,
-                        temperature=temperature,
-                        top_p=top_p,
-                        do_sample=True,
-                        no_repeat_ngram_size=3,
-                        repetition_penalty=1.05,
-                        eos_token_id=tokenizer.eos_token_id,
-                        pad_token_id=tokenizer.eos_token_id,
-                        return_full_text=False,
-                    )[0]["generated_text"]
-                ),
-                timeout=GEN_TIMEOUT_S,
-            )
+            return await generate_text(SYSTEM_ORB, prompt, max_new_tokens, temperature, top_p)
+        except ModelError as e:
+            last_err = e
+            await asyncio.sleep(0.8)
         except Exception as e:
             last_err = e
-            logger.warning(
-                "gen attempt %d failed (%s): %s",
-                attempt, type(e).__name__, (str(e) or repr(e))
-            )
-            # brief fixed backoff
-            await asyncio.sleep(1.0)
-
-    # Friendly message to the UI
-    raise HTTPException(
-        status_code=504,
-        detail="The Orb is thinking very slowly today. Try a shorter question or ask about stars, robots, or jokes!"
-    )
-
+            await asyncio.sleep(0.8)
+    raise HTTPException(status_code=504, detail=f"The Orb is busy. Try again! ({last_err})")
 # ---------- Routes ----------
 @app.get("/")
 def root():
@@ -369,12 +345,8 @@ def root():
 
 @app.get("/healthz")
 def healthz():
-    try:
-        load_model()
-        ok = text_gen is not None
-        return {"ok": ok, "model": MODEL_ID}
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True, "backend": os.getenv("MODEL_BACKEND", "hf"), "model": os.getenv("MODEL_ID", "unset")}
+
 
 @app.post("/api/generate")
 async def api_generate(req: Request):
