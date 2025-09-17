@@ -1,27 +1,33 @@
-// Browser-only Ask the Orb using WebLLM (no backend)
+// Ask the Orb — Hybrid client-only: WebLLM (WebGPU) + Transformers.js (WASM) fallback
 
-const chat = document.getElementById("chat");
-const form = document.getElementById("chatForm");
-const input = document.getElementById("chatInput");
-const mystery = document.getElementById("mysteryMode");
-
+// ---- DOM ----
+const chat         = document.getElementById("chat");
+const form         = document.getElementById("chatForm");
+const input        = document.getElementById("chatInput");
+const mystery      = document.getElementById("mysteryMode");
 const fairnessForm = document.getElementById("fairnessForm");
-const fairnessInput = document.getElementById("fairnessInput");
+const fairnessInput= document.getElementById("fairnessInput");
 const creativeForm = document.getElementById("creativeForm");
-const creativeInput = document.getElementById("creativeInput");
-const summaryForm = document.getElementById("summaryForm");
-const summaryText = document.getElementById("summaryText");
-const voiceBtn = document.getElementById("toggle-voice");
+const creativeInput= document.getElementById("creativeInput");
+const summaryForm  = document.getElementById("summaryForm");
+const summaryText  = document.getElementById("summaryText");
+const voiceBtn     = document.getElementById("toggle-voice");
+const statusEl     = document.getElementById("status");
 
+// ---- Config ----
 const SYS_PROMPT =
   "You are The Orb, a friendly AI for kids ages 6–10. Use short sentences, simple words, and a tiny emoji sometimes. Avoid scary or adult topics. If something feels unsafe, gently suggest a cheerful, safe idea instead.";
-const MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0-q4f16_1"; // small, browser-friendly
-const TEMP = 0.6, TOP_P = 0.9, MAX_OUT_CHARS = 480;
+const MODEL_ID_WEBGPU = "TinyLlama/TinyLlama-1.1B-Chat-v1.0-q4f16_1";  // WebLLM model
+const MAX_OUT_CHARS   = 480;
+const TEMP = 0.6, TOP_P = 0.9;
 
-let engine = null;
-let history = [];
+// ---- State ----
+let engine   = null; // WebLLM engine
+let wasmPipe = null; // transformers.js pipeline
+let history  = [];
 let useVoice = false, speaking = false;
 
+// ---- Helpers ----
 function addBubble(text, who = "orb") {
   const div = document.createElement("div");
   div.className = `bubble ${who}`;
@@ -39,6 +45,7 @@ function addThinking() {
   return div;
 }
 function updateBubble(div, text) { div.innerText = text; chat.scrollTop = chat.scrollHeight; }
+function setStatus(msg){ if (statusEl) statusEl.textContent = msg; }
 function clampReply(s) {
   if (!s) return s;
   if (s.length > MAX_OUT_CHARS) s = s.slice(0, MAX_OUT_CHARS).replace(/\s+\S*$/,"") + "…";
@@ -47,8 +54,17 @@ function clampReply(s) {
 function kidSafe(t){
   return !/\b(violence|weapon|self[- ]?harm|suicide|drugs?|alcohol|blood|gore|terror|extrem|sex|porn|nudity|hate|racis|homoph|xenoph|slur)\b/i.test(t||"");
 }
+function mysteryHintLine() {
+  const hints = [
+    "I followed star crumbs!",
+    "I juggled clues in a maze!",
+    "I danced with the numbers!",
+    "I sailed across idea islands!"
+  ];
+  return " " + hints[Math.floor(Math.random()*hints.length)];
+}
 
-// Voice (optional)
+// ---- Voice (optional) ----
 function speak(text){
   if (!useVoice || !window.speechSynthesis) return;
   if (speaking) window.speechSynthesis.cancel();
@@ -74,22 +90,38 @@ if ("webkitSpeechRecognition" in window) {
   });
 }
 
-// Init WebLLM
+// ---- INIT (WebGPU → WASM fallback) ----
 async function initLLM(){
-  const boot = addBubble("Loading the tiny model (first time can take a bit)…","orb");
+  setStatus("Checking your device…");
+
+  // Fast path: WebGPU + WebLLM
+  if ('gpu' in navigator && window.webllm?.CreateMLCEngine) {
+    try {
+      setStatus("Loading tiny model (WebGPU). First time can take a bit…");
+      engine = await webllm.CreateMLCEngine({ model: MODEL_ID_WEBGPU, temperature: TEMP, top_p: TOP_P });
+      setStatus("Ready! Ask me anything cheerful. ✨");
+      return;
+    } catch (e) {
+      console.warn("WebLLM init failed, will try WASM fallback:", e);
+    }
+  }
+
+  // Universal fallback: WASM + transformers.js
   try {
-    engine = await webllm.CreateMLCEngine({ model: MODEL_ID, temperature: TEMP, top_p: TOP_P });
-    updateBubble(boot, "Ready! Ask me anything cheerful. ✨");
-    console.log("WebLLM Ready:", MODEL_ID);
+    if (!window.transformers?.pipeline) throw new Error("Transformers.js not loaded");
+    setStatus("Using universal fallback (no GPU). Might be slower on first reply…");
+    const { pipeline } = window.transformers;
+    // Use a very small, widely-cached model; keep outputs short.
+    wasmPipe = await pipeline("text-generation", "Xenova/distilgpt2");
+    setStatus("Ready on fallback mode! ✨");
   } catch (e) {
-    console.error("WebLLM init error:", e);
-    updateBubble(boot, "Your browser might not support WebGPU. Try desktop Chrome/Edge/Safari.");
+    console.error("WASM fallback failed:", e);
+    setStatus("Your browser cannot run the local model. Please try on a desktop browser.");
   }
 }
 
-// Chat (streaming)
+// ---- Chat (streams on WebLLM; single-shot on WASM) ----
 async function chatOnce(userText, {injectMystery=true} = {}){
-  if (!engine) { addBubble("I’m still waking up. One moment, please!","orb"); return; }
   if (!kidSafe(userText)) {
     const msg = "I can’t talk about that. Let’s try space bugs, rainbow planets, or tiny robots instead! 🤖✨";
     addBubble(msg,"orb"); speak(msg); return;
@@ -98,32 +130,47 @@ async function chatOnce(userText, {injectMystery=true} = {}){
   addBubble(userText, "kid");
   const thinking = addThinking();
 
-  const mysteryHint = (mystery.checked && injectMystery)
-    ? "\n\nAdd one playful mystery hint in one short sentence."
-    : "";
-
-  const messages = [
-    { role:"system", content: SYS_PROMPT },
-    ...history,
-    { role:"user", content: userText + mysteryHint }
-  ];
-
-  let reply = "";
-  const streamCb = (delta) => { reply += delta; updateBubble(thinking, reply); };
+  const maybeMystery = (mystery.checked && injectMystery) ? "\n\nAdd one playful mystery hint in one short sentence." : "";
+  const messages = [{ role:"system", content: SYS_PROMPT }, ...history, { role:"user", content: userText + maybeMystery }];
 
   try {
-    await engine.chat.completions.create({ messages, stream:true }, streamCb);
-    reply = clampReply((reply||"").trim());
+    let reply = "";
+
+    if (engine) {
+      // WebLLM streaming path
+      let buf = "";
+      const streamCb = (delta) => { buf += delta; updateBubble(thinking, buf); };
+      await engine.chat.completions.create({ messages, stream:true }, streamCb);
+      reply = buf.trim();
+    } else if (wasmPipe) {
+      // WASM single-shot path (short output)
+      const prompt = `${SYS_PROMPT}\n\nUser: ${userText}\nAssistant:`;
+      const out = await wasmPipe(prompt, {
+        max_new_tokens: 60,
+        temperature: 0.9,
+        top_p: 0.95,
+        do_sample: true,
+        repetition_penalty: 1.1
+      });
+      reply = (out?.[0]?.generated_text || "").split("Assistant:").pop().trim();
+      if (mystery.checked && injectMystery) reply += mysteryHintLine();
+      updateBubble(thinking, reply);
+    } else {
+      updateBubble(thinking, "I couldn’t start my local brain here. Please try on a desktop browser.");
+      return;
+    }
+
+    reply = clampReply(reply);
     updateBubble(thinking, reply);
     history.push({role:"user", content:userText}, {role:"assistant", content:reply});
     speak(reply);
   } catch (e) {
     console.error("chat error:", e);
-    updateBubble(thinking, "Oops, I got tangled in star wires. Please try again!");
+    updateBubble(thinking, "We’re stuck in cosmic traffic. Please try again!");
   }
 }
 
-// Wire up forms (prompt-based)
+// ---- Wire up forms ----
 form.addEventListener("submit", (e)=>{
   e.preventDefault();
   const q = input.value.trim();
@@ -170,5 +217,5 @@ summaryForm.addEventListener("submit", (e)=>{
   chatOnce(prompt, {injectMystery:false});
 });
 
-// Boot
+// ---- Boot ----
 initLLM();
